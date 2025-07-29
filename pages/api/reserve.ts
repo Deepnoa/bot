@@ -46,15 +46,65 @@ export default async function handler(
       return res.status(500).json({ error: error.message })
     }
 
-    // LINEメッセージ送信
+    // LINE Flex Message 送信
     try {
       await lineClient.pushMessage(userId, {
-        type: 'text',
-        text: `\u{1F4DD} ご予約ありがとうございます！\n\n📛 お名前: ${name}\n📅 日時: ${datetime}\n📝 内容: ${detail}`,
+        type: 'flex',
+        altText: 'ご予約ありがとうございます！',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'md',
+            contents: [
+              {
+                type: 'text',
+                text: 'ご予約ありがとうございます！',
+                weight: 'bold',
+                size: 'md',
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'md',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                      { type: 'text', text: '📛 お名前', color: '#aaaaaa', size: 'sm', flex: 1 },
+                      { type: 'text', text: name, wrap: true, size: 'sm', flex: 5 },
+                    ],
+                  },
+                  {
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                      { type: 'text', text: '📅 日時', color: '#aaaaaa', size: 'sm', flex: 1 },
+                      { type: 'text', text: datetime, wrap: true, size: 'sm', flex: 5 },
+                    ],
+                  },
+                  {
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                      { type: 'text', text: '📝 内容', color: '#aaaaaa', size: 'sm', flex: 1 },
+                      { type: 'text', text: detail, wrap: true, size: 'sm', flex: 5 },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
       })
     } catch (pushError) {
       console.error('LINE pushMessage error:', pushError)
-      // 通知失敗してもエラーにはしない
     }
 
     return res.status(200).json({ status: 'ok' })
