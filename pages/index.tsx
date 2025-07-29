@@ -1,3 +1,4 @@
+import Head from "next/head"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -5,7 +6,16 @@ import { MessageCircle, BarChart3, Settings } from "lucide-react"
 
 export default function Home() {
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <>
+      <Head>
+        <title>LINE Bot Webhook Dashboard</title>
+        <meta
+          name="description"
+          content="LINE Bot webhook implementation with Next.js"
+        />
+        <meta name="generator" content="v0.dev" />
+      </Head>
+      <div className="container mx-auto p-6 space-y-8">
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold">LINE Bot Webhook</h1>
         <p className="text-xl text-muted-foreground">Next.js + Supabase で構築されたLINE Bot管理システム</p>
@@ -70,6 +80,7 @@ export default function Home() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   )
 }
