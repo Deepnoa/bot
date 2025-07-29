@@ -62,7 +62,7 @@ export default async function handler(
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://line-bot-webhook-ten.vercel.app/pubulic/carender-image.jpg',
+              url: 'https://line-bot-webhook-ten.vercel.app/pubulic/carender-image.png',
               size: 'full',
               aspectRatio: '20:13',
               aspectMode: 'cover',
