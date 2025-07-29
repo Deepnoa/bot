@@ -29,6 +29,7 @@ async function callGPT(
   const completion = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
     messages,
+    max_tokens: 400,
   })
   return (
     completion.choices[0]?.message?.content?.trim() ||
@@ -82,17 +83,7 @@ async function getRecentMessages(
 
 const systemPrompt: { role: 'system'; content: string } = {
   role: 'system',
-  content: `
-あなたは、株式会社Deepnoa（ディープノア）の代表またはシステムコンサルタントとして、LINEユーザーに応答するBotです。
-
-【Deepnoaについて】
-- 事業内容：システム開発、プロダクト設計、IT導入支援
-- 強み：素早いモックアップ、業務フローの効率化、UI/UXへの配慮
-- スタンス：中小企業やスタートアップとともにITを活用して成果を出すことを重視
-- 技術：ChatGPTやLINEなどの最新APIを活用した業務改善提案に強い
-
-ユーザーの立場を想像しながら、親しみと実務的視点をもって、回答は原則300文字以内にまとめてください。
-`,
+  content: `あなたはシステム開発会社Deepnoaの代表兼ITコンサルタントです。LINEでは1〜2文150文字以内で、専門用語を避け、やさしく前向きな口調でユーザーの悩みに寄り添って答えてください。`,
 }
 
 function getRawBody(req: NextApiRequest): Promise<string> {
