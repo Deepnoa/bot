@@ -60,6 +60,13 @@ export default async function handler(
           altText: 'ご予約ありがとうございます！',
           contents: {
             type: 'bubble',
+            hero: {
+              type: 'image',
+              url: 'https://example.com/image.jpg',
+              size: 'full',
+              aspectRatio: '20:13',
+              aspectMode: 'cover',
+            },
             body: {
               type: 'box',
               layout: 'vertical',
@@ -69,7 +76,7 @@ export default async function handler(
                   type: 'text',
                   text: 'ご予約ありがとうございます！',
                   weight: 'bold',
-                  size: 'md',
+                  size: 'xl',
                 },
                 {
                   type: 'box',
@@ -82,8 +89,8 @@ export default async function handler(
                       layout: 'baseline',
                       spacing: 'sm',
                       contents: [
-                        { type: 'text', text: '📛 お名前', color: '#aaaaaa', size: 'sm', flex: 1 },
-                        { type: 'text', text: name, wrap: true, size: 'sm', flex: 5 },
+                        { type: 'text', text: 'お名前', color: '#aaaaaa', size: 'sm', flex: 1 },
+                        { type: 'text', text: name, wrap: true, color: '#666666', size: 'sm', flex: 5 },
                       ],
                     },
                     {
@@ -91,8 +98,8 @@ export default async function handler(
                       layout: 'baseline',
                       spacing: 'sm',
                       contents: [
-                        { type: 'text', text: '📅 日時', color: '#aaaaaa', size: 'sm', flex: 1 },
-                        { type: 'text', text: datetime, wrap: true, size: 'sm', flex: 5 },
+                        { type: 'text', text: '日時', color: '#aaaaaa', size: 'sm', flex: 1 },
+                        { type: 'text', text: datetime, wrap: true, color: '#666666', size: 'sm', flex: 5 },
                       ],
                     },
                     {
@@ -100,13 +107,37 @@ export default async function handler(
                       layout: 'baseline',
                       spacing: 'sm',
                       contents: [
-                        { type: 'text', text: '📝 内容', color: '#aaaaaa', size: 'sm', flex: 1 },
-                        { type: 'text', text: detail, wrap: true, size: 'sm', flex: 5 },
+                        { type: 'text', text: '内容', color: '#aaaaaa', size: 'sm', flex: 1 },
+                        { type: 'text', text: detail, wrap: true, color: '#666666', size: 'sm', flex: 5 },
                       ],
                     },
                   ],
                 },
               ],
+            },
+            footer: {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'button',
+                  style: 'link',
+                  height: 'sm',
+                  action: {
+                    type: 'uri',
+                    label: '詳細を見る',
+                    uri: 'https://your-liff-url.example.com',
+                  },
+                },
+                { type: 'spacer', size: 'sm' },
+              ],
+              flex: 0,
+            },
+            styles: {
+              footer: {
+                separator: true,
+              },
             },
           },
         }
