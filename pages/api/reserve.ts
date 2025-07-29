@@ -67,7 +67,7 @@ export default async function handler(
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://line-bot-webhook-ten.vercel.app/pubulic/calender-image.png',
+              url: 'https://line-bot-webhook-ten.vercel.app/calender-image.png',
               size: 'full',
               aspectRatio: '20:13',
               aspectMode: 'cover',
