@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { Client, type WebhookEvent, validateSignature } from '@line/bot-sdk'
 import OpenAI from 'openai'
+import { createClient } from '@supabase/supabase-js'
 
 export const config = {
   api: {
@@ -16,6 +17,48 @@ const client = new Client({
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 })
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+)
+
+async function insertMessage(
+  userId: string,
+  role: 'user' | 'assistant',
+  message: string
+): Promise<void> {
+  const { error } = await supabase.from('chat_messages').insert({
+    user_id: userId,
+    role,
+    message,
+  })
+  if (error) {
+    console.error('insertMessage error:', error)
+  }
+}
+
+async function getRecentMessages(
+  userId: string,
+  limit = 5
+): Promise<{ role: string; content: string }[]> {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('role, message, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('getRecentMessages error:', error)
+    return []
+  }
+
+  return (data || []).map(m => ({
+    role: m.role as string,
+    content: m.message as string,
+  }))
+}
 
 const systemPrompt = `
 あなたは現役のシステムエンジニアです。
@@ -57,29 +100,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const event of events) {
       if (event.type === 'message' && event.message.type === 'text') {
         const text = event.message.text.trim()
+        const userId = event.source.userId!
+
+        await insertMessage(userId, 'user', text)
+
+        let replyText = ''
+
         if (text === '会社情報') {
-          await client.replyMessage(event.replyToken, {
-            type: 'text',
-            text: '弊社のWebサイトはこちらです：https://deepnoa.com',
-          })
+          replyText = '弊社のWebサイトはこちらです：https://deepnoa.com'
         } else {
+          const history = await getRecentMessages(userId)
+          const messages = [
+            { role: 'system', content: systemPrompt },
+            ...history,
+            { role: 'user', content: text },
+          ]
+
           const completion = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: text },
-            ],
+            messages,
           })
 
-          const replyText =
+          replyText =
             completion.choices[0]?.message?.content?.trim() ||
             '申し訳ありません、うまく応答できませんでした。'
-
-          await client.replyMessage(event.replyToken, {
-            type: 'text',
-            text: replyText,
-          })
         }
+
+        await insertMessage(userId, 'assistant', replyText)
+
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: replyText,
+        })
       }
     }
 
