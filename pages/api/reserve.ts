@@ -53,7 +53,7 @@ export default async function handler(
     }
 
     const useText = process.env.LINE_USE_TEXT_MESSAGE === 'true'
-    const reservationUrl = `https://your-vercel-domain.vercel.app/reservation/${data.id}`
+    const reservationUrl = `https://line-bot-webhook-ten.vercel.app/reservation/${data.id}`
 
     const message = useText
       ? {
@@ -67,7 +67,7 @@ export default async function handler(
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://line-bot-webhook-ten.vercel.app/pubulic/carender-image.png',
+              url: 'https://line-bot-webhook-ten.vercel.app/pubulic/calender-image.png',
               size: 'full',
               aspectRatio: '20:13',
               aspectMode: 'cover',
