@@ -52,7 +52,9 @@ async function insertMessage(
     message,
   })
   if (error) {
-    console.error('insertMessage error:', error)
+    console.error('🔥 Supabase保存エラー:', error)
+  } else {
+    console.log(`💾 保存成功 [${role}]`, message.slice(0, 50))
   }
 }
 
@@ -146,9 +148,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         await insertMessage(userId, 'assistant', replyText)
 
-        await client.replyMessage(event.replyToken, {
-          messages: splitMessage(replyText),
-        })
+        try {
+          await client.replyMessage(event.replyToken, {
+            messages: splitMessage(replyText),
+          })
+        } catch (err) {
+          console.error('❌ LINE返信エラー:', err)
+        }
       }
     }
 
