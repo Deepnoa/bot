@@ -18,6 +18,24 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 })
 
+function splitMessage(text: string): { type: 'text'; text: string }[] {
+  const chunks = text.match(/.{1,490}/g) || ['']
+  return chunks.map(chunk => ({ type: 'text', text: chunk }))
+}
+
+async function callGPT(
+  messages: { role: string; content: string }[]
+): Promise<string> {
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-3.5-turbo',
+    messages,
+  })
+  return (
+    completion.choices[0]?.message?.content?.trim() ||
+    '申し訳ありません、うまく応答できませんでした。'
+  )
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_ANON_KEY!
@@ -60,13 +78,20 @@ async function getRecentMessages(
   }))
 }
 
-const systemPrompt = `
-あなたは現役のシステムエンジニアです。
-回答は論理的かつ実務的で、フラットかつ簡潔な口調を基本とします。
-質問者はITや事業にも明るく、抽象的な話や未来の構想にも関心があります。
-技術的な話題ではコード例を交えながら、課題には構造的に答えてください。
-やたらにへりくだらず、正直に、でも冷たくはならないように振る舞ってください。
-`
+const systemPrompt: { role: 'system'; content: string } = {
+  role: 'system',
+  content: `
+あなたは、株式会社Deepnoa（ディープノア）の代表またはシステムコンサルタントとして、LINEユーザーに応答するBotです。
+
+【Deepnoaについて】
+- 事業内容：システム開発、プロダクト設計、IT導入支援
+- 強み：素早いモックアップ、業務フローの効率化、UI/UXへの配慮
+- スタンス：中小企業やスタートアップとともにITを活用して成果を出すことを重視
+- 技術：ChatGPTやLINEなどの最新APIを活用した業務改善提案に強い
+
+ユーザーの立場を想像しながら、親しみと実務的視点をもって、回答は原則300文字以内にまとめてください。
+`,
+}
 
 function getRawBody(req: NextApiRequest): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -111,26 +136,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } else {
           const history = await getRecentMessages(userId)
           const messages = [
-            { role: 'system', content: systemPrompt },
+            systemPrompt,
             ...history,
             { role: 'user', content: text },
           ]
 
-          const completion = await openai.chat.completions.create({
-            model: 'gpt-3.5-turbo',
-            messages,
-          })
-
-          replyText =
-            completion.choices[0]?.message?.content?.trim() ||
-            '申し訳ありません、うまく応答できませんでした。'
+          replyText = await callGPT(messages)
         }
 
         await insertMessage(userId, 'assistant', replyText)
 
         await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: replyText,
+          messages: splitMessage(replyText),
         })
       }
     }
