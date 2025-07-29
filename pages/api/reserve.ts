@@ -36,12 +36,16 @@ export default async function handler(
       return res.status(400).json({ error: 'missing fields' })
     }
 
-    const { error } = await supabase.from('inquiries').insert({
-      user_id: userId,
-      name,
-      datetime,
-      detail,
-    })
+    const { data, error } = await supabase
+      .from('inquiries')
+      .insert({
+        user_id: userId,
+        name,
+        datetime,
+        detail,
+      })
+      .select('id')
+      .single()
 
     if (error) {
       console.error('Reserve insert error:', error)
@@ -49,6 +53,7 @@ export default async function handler(
     }
 
     const useText = process.env.LINE_USE_TEXT_MESSAGE === 'true'
+    const reservationUrl = `https://your-vercel-domain.vercel.app/reservation/${data.id}`
 
     const message = useText
       ? {
@@ -127,7 +132,7 @@ export default async function handler(
                   action: {
                     type: 'uri',
                     label: '詳細を見る',
-                    uri: 'https://your-liff-url.example.com',
+                    uri: reservationUrl,
                   },
                 },
                 { type: 'spacer', size: 'sm' },
@@ -153,7 +158,7 @@ export default async function handler(
       console.error('data:', pushError?.response?.data)
     }
 
-    return res.status(200).json({ status: 'ok' })
+    return res.status(200).json({ status: 'ok', id: data.id })
   } catch (err) {
     console.error('Reserve API error:', err)
     return res.status(500).json({ error: 'Internal server error' })
