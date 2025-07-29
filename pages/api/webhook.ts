@@ -148,10 +148,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         await insertMessage(userId, 'assistant', replyText)
 
+        const replyMessages = splitMessage(replyText)
         try {
-          await client.replyMessage(event.replyToken, {
-            messages: splitMessage(replyText),
-          })
+          await client.replyMessage(event.replyToken, replyMessages)
         } catch (err) {
           console.error('❌ LINE返信エラー:', err)
         }
