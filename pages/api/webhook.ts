@@ -43,10 +43,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (const event of events) {
       if (event.type === 'message' && event.message.type === 'text') {
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: `あなたは「${event.message.text}」と言いましたね`,
-        })
+        const text = event.message.text.trim()
+        if (text === '会社情報') {
+          await client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '弊社のWebサイトはこちらです：https://deepnoa.com',
+          })
+        } else {
+          await client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: `あなたは「${event.message.text}」と言いましたね`,
+          })
+        }
       }
     }
 
