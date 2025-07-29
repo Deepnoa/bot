@@ -61,29 +61,44 @@ async function insertMessage(
 
 async function getRecentMessages(
   userId: string,
-  limit = 5
+  limit = 4
 ): Promise<{ role: string; content: string }[]> {
   const { data, error } = await supabase
     .from('chat_messages')
     .select('role, message, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(limit)
+    .limit(limit * 2)
 
   if (error) {
     console.error('getRecentMessages error:', error)
     return []
   }
 
-  return (data || []).map(m => ({
+  const rawMessages = (data || []).map(m => ({
     role: m.role as string,
     content: m.message as string,
   }))
+
+  const history: { role: string; content: string }[] = []
+  let lastRole: string | null = null
+  for (const msg of rawMessages) {
+    if (lastRole && lastRole === msg.role) continue
+    history.push(msg)
+    lastRole = msg.role
+    if (history.length >= limit) break
+  }
+
+  return history
 }
 
 const systemPrompt: { role: 'system'; content: string } = {
   role: 'system',
-  content: `あなたはシステム開発会社Deepnoaの代表兼ITコンサルタントです。LINEでは1〜2文150文字以内で、専門用語を避け、やさしく前向きな口調でユーザーの悩みに寄り添って答えてください。`,
+  content: `
+あなたは株式会社DeepnoaのAIアシスタントです。
+ユーザーの相談に対して、やさしく・わかりやすく・カジュアルに、原則150文字以内、1〜2文で返答してください。回答は150文字程度でまとめてください。
+難しい言葉は避け、ユーザーの直前の発言にフォーカスして会話の流れを意識してください。
+`,
 }
 
 function getRawBody(req: NextApiRequest): Promise<string> {
@@ -127,7 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (text === '会社情報') {
           replyText = '弊社のWebサイトはこちらです：https://deepnoa.com'
         } else {
-          const history = await getRecentMessages(userId)
+          const history = await getRecentMessages(userId, 4)
           const messages = [
             systemPrompt,
             ...history,
