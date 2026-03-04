@@ -24,13 +24,6 @@ if ($rawBody === false || $rawBody === "") {
     exit;
 }
 
-$payload = json_decode($rawBody, true);
-if (!is_array($payload)) {
-    http_response_code(400);
-    echo "invalid json\n";
-    exit;
-}
-
 $secret = getenv("GITHUB_WEBHOOK_SECRET") ?: "";
 if ($secret !== "") {
     $sigHeader = $_SERVER["HTTP_X_HUB_SIGNATURE_256"] ?? "";
@@ -46,6 +39,21 @@ if ($secret !== "") {
         echo "signature mismatch\n";
         exit;
     }
+}
+
+$payload = json_decode($rawBody, true);
+if (!is_array($payload)) {
+    // GitHub webhook content-type が form の場合は payload=... に JSON が入る
+    parse_str($rawBody, $form);
+    if (isset($form["payload"]) && is_string($form["payload"])) {
+        $payload = json_decode($form["payload"], true);
+    }
+}
+
+if (!is_array($payload)) {
+    http_response_code(400);
+    echo "invalid json\n";
+    exit;
 }
 
 $event = $_SERVER["HTTP_X_GITHUB_EVENT"] ?? "unknown";
@@ -64,6 +72,7 @@ $record = [
         "sender" => $sender,
         "remote_addr" => $_SERVER["REMOTE_ADDR"] ?? "",
         "user_agent" => $_SERVER["HTTP_USER_AGENT"] ?? "",
+        "content_type" => $_SERVER["CONTENT_TYPE"] ?? "",
     ],
     "payload" => $payload,
 ];
