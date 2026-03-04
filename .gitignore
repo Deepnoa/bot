@@ -10,3 +10,7 @@ line_bot/venv/
 
 # Queue runtime data
 github_queue_local/queue/
+
+# Line queue runtime data
+line_queue_local/queue/
+line_queue_local/failed/
