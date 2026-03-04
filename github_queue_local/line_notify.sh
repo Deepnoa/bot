@@ -7,11 +7,16 @@ if [ "${1:-}" = "" ]; then
 fi
 
 MESSAGE="$1"
-ENV_PATH="${HOME}/bot/line_bot/.env"
-if [ -f "$ENV_PATH" ]; then
+ENV_PATH_PRIMARY="${HOME}/bot/github_queue_local/.env"
+ENV_PATH_FALLBACK="${HOME}/bot/line_bot/.env"
+
+if [ -f "$ENV_PATH_PRIMARY" ]; then
   set -a
-  # shellcheck disable=SC1090
-  . "$ENV_PATH"
+  . "$ENV_PATH_PRIMARY"
+  set +a
+elif [ -f "$ENV_PATH_FALLBACK" ]; then
+  set -a
+  . "$ENV_PATH_FALLBACK"
   set +a
 fi
 
@@ -37,13 +42,9 @@ fi
 payload="$({ python3 - "$ADMIN_ID" "$MESSAGE" <<'PY'
 import json
 import sys
-
 to = sys.argv[1]
 message = sys.argv[2]
-print(json.dumps({
-    "to": to,
-    "messages": [{"type": "text", "text": message[:4900]}],
-}, ensure_ascii=False))
+print(json.dumps({"to": to, "messages": [{"type": "text", "text": message[:4900]}]}, ensure_ascii=False))
 PY
 } )"
 
