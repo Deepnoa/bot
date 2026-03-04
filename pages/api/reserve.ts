@@ -1,11 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import { createClient } from '@supabase/supabase-js'
-import { Client as LineClient } from '@line/bot-sdk'
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-)
+import type { NextApiRequest, NextApiResponse } from "next"
+import { Client as LineClient } from "@line/bot-sdk"
+import { query } from "@/lib/postgres"
 
 const lineClient = new LineClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
@@ -18,102 +13,93 @@ interface ReserveBody {
   detail: string
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST')
-    return res.status(405).end('Method Not Allowed')
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST")
+    return res.status(405).end("Method Not Allowed")
   }
 
   try {
     const { userId, name, datetime, detail } = req.body as ReserveBody
 
-    console.log('Reserve request userId:', userId)
-
     if (!userId || !name || !datetime || !detail) {
-      return res.status(400).json({ error: 'missing fields' })
+      return res.status(400).json({ error: "missing fields" })
     }
 
-    const { data, error } = await supabase
-      .from('inquiries')
-      .insert({
-        user_id: userId,
-        name,
-        datetime,
-        detail,
-      })
-      .select('id')
-      .single()
+    const insertResult = await query<{ id: number }>(
+      `INSERT INTO inquiries (user_id, name, datetime, detail)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [userId, name, datetime, detail]
+    )
 
-    if (error) {
-      console.error('Reserve insert error:', error)
-      return res.status(500).json({ error: error.message })
+    const inquiryId = insertResult.rows[0]?.id
+    if (!inquiryId) {
+      return res.status(500).json({ error: "failed to create inquiry" })
     }
 
-    const useText = process.env.LINE_USE_TEXT_MESSAGE === 'true'
-    const reservationUrl = `https://line-bot-webhook-ten.vercel.app/reservation/${data.id}`
+    const useText = process.env.LINE_USE_TEXT_MESSAGE === "true"
+    const reservationUrl = `https://line-bot-webhook-ten.vercel.app/reservation/${inquiryId}`
 
     const message = useText
       ? {
-          type: 'text' as const,
-          text: 'ご予約ありがとうございます！',
+          type: "text" as const,
+          text: "ご予約ありがとうございます！",
         }
       : {
-          type: 'flex' as const,
-          altText: 'ご予約ありがとうございます！',
+          type: "flex" as const,
+          altText: "ご予約ありがとうございます！",
           contents: {
-            type: 'bubble',
+            type: "bubble",
             hero: {
-              type: 'image',
-              url: 'https://line-bot-webhook-ten.vercel.app/calender-image.png',
-              size: 'full',
-              aspectRatio: '20:13',
-              aspectMode: 'cover',
+              type: "image",
+              url: "https://line-bot-webhook-ten.vercel.app/calender-image.png",
+              size: "full",
+              aspectRatio: "20:13",
+              aspectMode: "cover",
             },
             body: {
-              type: 'box',
-              layout: 'vertical',
-              spacing: 'md',
+              type: "box",
+              layout: "vertical",
+              spacing: "md",
               contents: [
                 {
-                  type: 'text',
-                  text: 'ご予約ありがとうございます！',
-                  weight: 'bold',
-                  size: 'xl',
+                  type: "text",
+                  text: "ご予約ありがとうございます！",
+                  weight: "bold",
+                  size: "xl",
                 },
                 {
-                  type: 'box',
-                  layout: 'vertical',
-                  margin: 'md',
-                  spacing: 'sm',
+                  type: "box",
+                  layout: "vertical",
+                  margin: "md",
+                  spacing: "sm",
                   contents: [
                     {
-                      type: 'box',
-                      layout: 'baseline',
-                      spacing: 'sm',
+                      type: "box",
+                      layout: "baseline",
+                      spacing: "sm",
                       contents: [
-                        { type: 'text', text: 'お名前', color: '#aaaaaa', size: 'sm', flex: 1 },
-                        { type: 'text', text: name, wrap: true, color: '#666666', size: 'sm', flex: 5 },
+                        { type: "text", text: "お名前", color: "#aaaaaa", size: "sm", flex: 1 },
+                        { type: "text", text: name, wrap: true, color: "#666666", size: "sm", flex: 5 },
                       ],
                     },
                     {
-                      type: 'box',
-                      layout: 'baseline',
-                      spacing: 'sm',
+                      type: "box",
+                      layout: "baseline",
+                      spacing: "sm",
                       contents: [
-                        { type: 'text', text: '日時', color: '#aaaaaa', size: 'sm', flex: 1 },
-                        { type: 'text', text: datetime, wrap: true, color: '#666666', size: 'sm', flex: 5 },
+                        { type: "text", text: "日時", color: "#aaaaaa", size: "sm", flex: 1 },
+                        { type: "text", text: datetime, wrap: true, color: "#666666", size: "sm", flex: 5 },
                       ],
                     },
                     {
-                      type: 'box',
-                      layout: 'baseline',
-                      spacing: 'sm',
+                      type: "box",
+                      layout: "baseline",
+                      spacing: "sm",
                       contents: [
-                        { type: 'text', text: '内容', color: '#aaaaaa', size: 'sm', flex: 1 },
-                        { type: 'text', text: detail, wrap: true, color: '#666666', size: 'sm', flex: 5 },
+                        { type: "text", text: "内容", color: "#aaaaaa", size: "sm", flex: 1 },
+                        { type: "text", text: detail, wrap: true, color: "#666666", size: "sm", flex: 5 },
                       ],
                     },
                   ],
@@ -121,21 +107,21 @@ export default async function handler(
               ],
             },
             footer: {
-              type: 'box',
-              layout: 'vertical',
-              spacing: 'sm',
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
               contents: [
                 {
-                  type: 'button',
-                  style: 'link',
-                  height: 'sm',
+                  type: "button",
+                  style: "link",
+                  height: "sm",
                   action: {
-                    type: 'uri',
-                    label: '詳細を見る',
+                    type: "uri",
+                    label: "詳細を見る",
                     uri: reservationUrl,
                   },
                 },
-                { type: 'spacer', size: 'sm' },
+                { type: "spacer", size: "sm" },
               ],
               flex: 0,
             },
@@ -147,20 +133,17 @@ export default async function handler(
           },
         }
 
-    console.log('Sending LINE message. textMode:', useText)
-
     try {
       await lineClient.pushMessage(userId, message)
-      console.log('pushMessage success')
     } catch (pushError: any) {
-      console.error('LINE pushMessage error:', pushError)
-      console.error('status:', pushError?.response?.status)
-      console.error('data:', pushError?.response?.data)
+      console.error("LINE pushMessage error:", pushError)
+      console.error("status:", pushError?.response?.status)
+      console.error("data:", pushError?.response?.data)
     }
 
-    return res.status(200).json({ status: 'ok', id: data.id })
-  } catch (err) {
-    console.error('Reserve API error:', err)
-    return res.status(500).json({ error: 'Internal server error' })
+    return res.status(200).json({ status: "ok", id: inquiryId })
+  } catch (error) {
+    console.error("Reserve API error:", error)
+    return res.status(500).json({ error: "Internal server error" })
   }
 }
