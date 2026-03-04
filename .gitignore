@@ -1,0 +1,12 @@
+# Secrets
+line_bot/.env
+
+# Python virtualenv
+line_bot/venv/
+
+# Runtime logs
+**/log/
+*.log
+
+# Queue runtime data
+github_queue_local/queue/
