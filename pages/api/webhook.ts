@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { Client, type WebhookEvent, validateSignature } from '@line/bot-sdk'
-import OpenAI from 'openai'
+import fetch from 'node-fetch'
 import { createClient } from '@supabase/supabase-js'
 
 export const config = {
@@ -9,62 +9,43 @@ export const config = {
   },
 }
 
+console.log("LINE_CHANNEL_ACCESS_TOKEN exists", Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN))
+console.log("LINE_CHANNEL_SECRET exists", Boolean(process.env.LINE_CHANNEL_SECRET))
+
+const ollamaUrl = process.env.OLLAMA_URL || 'http://192.168.11.11:11434/api/chat';
+
+async function callOllama(
+  messages: { role: string; content: string }[]
+): Promise<string> {
+  const payload = { model: MODEL, messages: messages.map(m => ({ role: m.role, content: m.content })), stream: false };
+  const res = await fetch(ollamaUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    console.error('Ollama error:', err);
+    return '申し訳ありません、うまく応答できませんでした。';
+  }
+  const data = await res.json();
+  return data.message?.content?.trim() || '応答がありませんでした。';
+}
+
 const client = new Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
   channelSecret: process.env.LINE_CHANNEL_SECRET!,
 })
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
-
-function splitMessage(text: string): { type: 'text'; text: string }[] {
-  const chunks = text.match(/.{1,490}/g) || ['']
-  return chunks.map(chunk => ({ type: 'text', text: chunk }))
+const systemPrompt: { role: 'system'; content: string } = {
+  role: 'system',
+  content: `
+あなたは株式会社DeepnoaのAIアシスタントです。
+ユーザーの相談に対して、やさしく・わかりやすく・カジュアルに、原則150文字以内、1〜2文で返答してください。回答は150文字程度でまとめてください。
+難しい言葉は避け、ユーザーの直前の発言にフォーカスして会話の流れを意識してください。
+`,
 }
 
-async function callGPT(
-  messages: { role: string; content: string }[]
-): Promise<string> {
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
-    messages,
-    max_tokens: 400,
-  })
-  return (
-    completion.choices[0]?.message?.content?.trim() ||
-    '申し訳ありません、うまく応答できませんでした。'
-  )
-}
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-)
-
-async function insertMessage(
-  userId: string,
-  role: 'user' | 'assistant',
-  message: string
-): Promise<void> {
-  const { error } = await supabase.from('chat_messages').insert({
-    user_id: userId,
-    role,
-    message,
-  })
-  if (error) {
-    console.error('🔥 Supabase保存エラー:', error)
-  } else {
-    console.log(`💾 保存成功 [${role}]`, message.slice(0, 50))
-  }
-}
-
-async function getRecentMessages(
-  userId: string,
-  limit = 4
-): Promise<{ role: string; content: string }[]> {
-  const { data, error } = await supabase
-    .from('chat_messages')
     .select('role, message, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
@@ -92,18 +73,11 @@ async function getRecentMessages(
   return history
 }
 
-const systemPrompt: { role: 'system'; content: string } = {
-  role: 'system',
-  content: `
-あなたは株式会社DeepnoaのAIアシスタントです。
-ユーザーの相談に対して、やさしく・わかりやすく・カジュアルに、原則150文字以内、1〜2文で返答してください。回答は150文字程度でまとめてください。
-難しい言葉は避け、ユーザーの直前の発言にフォーカスして会話の流れを意識してください。
-`,
+function splitMessage(text: string): { type: 'text'; text: string }[] {
+  const chunks = text.match(/.{1,490}/g) || ['']
+  return chunks.map(chunk => ({ type: 'text', text: chunk }))
 }
 
-function getRawBody(req: NextApiRequest): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Uint8Array[] = []
     req.on('data', chunk => chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk))
     req.on('end', () => resolve(Buffer.concat(chunks).toString()))
     req.on('error', reject)
@@ -149,7 +123,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             { role: 'user', content: text },
           ]
 
-          replyText = await callGPT(messages)
+          replyText = await callOllama(messages)
         }
 
         await insertMessage(userId, 'assistant', replyText)
