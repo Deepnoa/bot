@@ -30,6 +30,48 @@ LINE_API = "https://api.line.me/v2/bot/message/reply"
 if not DB_URL:
     raise RuntimeError("DB_URL is not set in ~/bot/line_bot/.env")
 
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS queue_line (
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status TEXT NOT NULL DEFAULT 'queued',
+  user_id TEXT NOT NULL,
+  reply_token TEXT NOT NULL,
+  user_msg TEXT NOT NULL,
+  error TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_queue_line_status_created
+  ON queue_line (status, created_at);
+
+CREATE TABLE IF NOT EXISTS line_messages (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_line_messages_user_created
+  ON line_messages (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS line_users (
+  user_id TEXT PRIMARY KEY,
+  first_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_role TEXT,
+  last_message TEXT,
+  message_count BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+"""
+
+
+def ensure_schema():
+    with psycopg.connect(DB_URL) as conn:
+        with conn.transaction():
+            conn.execute(SCHEMA_SQL)
+
 
 def ask_ollama(messages: list[dict[str, str]]) -> str:
     url = f"http://{OLLAMA_HOST}/api/chat"
@@ -96,6 +138,19 @@ def save_message(conn: psycopg.Connection, user_id: str, role: str, message: str
         """,
         (user_id, role, message),
     )
+    conn.execute(
+        """
+        INSERT INTO line_users (user_id, last_seen, last_role, last_message, message_count, updated_at)
+        VALUES (%s, NOW(), %s, %s, 1, NOW())
+        ON CONFLICT (user_id) DO UPDATE
+          SET last_seen = NOW(),
+              last_role = EXCLUDED.last_role,
+              last_message = EXCLUDED.last_message,
+              message_count = line_users.message_count + 1,
+              updated_at = NOW()
+        """,
+        (user_id, role, message[:2000]),
+    )
 
 
 def pick_job() -> tuple[int, str, str, str] | None:
@@ -151,6 +206,8 @@ def build_messages(user_id: str, user_msg: str) -> list[dict[str, str]]:
 
 
 def main():
+    ensure_schema()
+
     print(f"[START] DB={DB_URL}")
     print(
         f"[START] OLLAMA=http://{OLLAMA_HOST} MODEL={MODEL} "
